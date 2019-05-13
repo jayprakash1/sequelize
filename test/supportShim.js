@@ -1,6 +1,6 @@
 'use strict';
 
-const QueryInterface = require(__dirname + '/../lib/query-interface'),
+const QueryInterface = require('../lib/query-interface'),
   hintsModule = require('hints'),
   _ = require('lodash'),
   util = require('util');
@@ -17,7 +17,7 @@ module.exports = function(Sequelize) {
   shimAll(QueryInterface.prototype, 'QueryInterface#');
   shimAll(Sequelize.Association.prototype, 'Association#');
   _.forIn(Sequelize.Association, (Association, name) => {
-    shimAll(Association.prototype, 'Association.' + name + '#');
+    shimAll(Association.prototype, `Association.${name}#`);
   });
 
   // Shim Model static methods to then shim getter/setter methods
@@ -28,7 +28,7 @@ module.exports = function(Sequelize) {
           association = original.apply(this, arguments);
 
         _.forIn(association.accessors, (accessor, accessorName) => {
-          shim(model.prototype, accessor, model.prototype[accessor].length, null, 'Model#' + accessorName);
+          shim(model.prototype, accessor, model.prototype[accessor].length, null, `Model#${accessorName}`);
         });
 
         return association;
@@ -132,15 +132,14 @@ module.exports = function(Sequelize) {
     shimMethod(obj, name, original => {
       const sequelizeProto = obj === Sequelize.prototype;
 
-      return function() {
+      return function(...args) {
         let sequelize = sequelizeProto ? this : this.sequelize;
         if (this instanceof Sequelize.Association) sequelize = this.target.sequelize;
         if (!sequelize) throw new Error('Object does not have a `sequelize` attribute');
 
-        let args = Sequelize.Utils.sliceArgs(arguments);
         const fromTests = calledFromTests();
 
-        if (conform) args = conform.apply(this, arguments);
+        if (conform) args = conform.apply(this, args);
 
         let options = args[index];
 
@@ -164,7 +163,7 @@ module.exports = function(Sequelize) {
 
           if (!(result instanceof Sequelize.Promise)) {
             result = Sequelize.Promise.resolve(result);
-            err = new Error('Promise returned by ' + debugName + ' is not instance of Sequelize.Promise');
+            err = new Error(`Promise returned by ${debugName} is not instance of Sequelize.Promise`);
           }
 
           result = result.finally(() => {
@@ -219,10 +218,9 @@ module.exports = function(Sequelize) {
       const logger = originalLogging !== undefined ? originalLogging : sequelize.options.logging;
       if (logger) {
         if ((sequelize.options.benchmark || options.benchmark) && logger === console.log) {
-          return logger.call(this, arguments[0] + ' Elapsed time: ' + arguments[1] + 'ms');
-        } else {
-          return logger.apply(this, arguments);
+          return logger.call(this, `${arguments[0]} Elapsed time: ${arguments[1]}ms`);
         }
+        return logger.apply(this, arguments);
       }
     };
 
@@ -253,7 +251,7 @@ module.exports = function(Sequelize) {
    * @throws {Error} - Throws if `options.logging` is not a shimmed logging function
    */
   function testLogger(options, name) {
-    if (!options || !options.logging || !options.logging.__testLoggingFn) throw new Error('options.logging has been lost in method ' + name);
+    if (!options || !options.logging || !options.logging.__testLoggingFn) throw new Error(`options.logging has been lost in method ${name}`);
   }
 
   /**
@@ -262,8 +260,8 @@ module.exports = function(Sequelize) {
    *
    * @returns {boolean} - true if this method called from within the tests
    */
-  const pathRegStr = _.escapeRegExp(__dirname + '/'),
-    regExp = new RegExp('^\\s+at\\s+(' + pathRegStr + '|.+ \\(' + pathRegStr + ')');
+  const pathRegStr = _.escapeRegExp(''),
+    regExp = new RegExp(`^\\s+at\\s+(${pathRegStr}|.+ \\(${pathRegStr})`);
 
   function calledFromTests() {
     return !!(new Error()).stack.split(/[\r\n]+/)[3].match(regExp);
@@ -300,8 +298,8 @@ function forOwn(obj, fn) {
 function getFunctionCode(fn) {
   let code = fn.toString();
   if (code.match(/^function[\s\*\(]/) || code.match(/^class[\s\{]/)) return code;
-  if (code.match(/^(import|delete)[\s\*\(]/)) code = '_' + code.substr(1);
-  return 'function ' + code;
+  if (code.match(/^(import|delete)[\s\*\(]/)) code = `_${code.substr(1)}`;
+  return `function ${code}`;
 }
 
 /**
@@ -339,7 +337,7 @@ function getArgumentsConformFn(method, args, hints, tree) {
     body = getFunctionCode(method).slice(start, hints.end.start);
 
   // create function that conforms arguments
-  return new Function(args, body + ';return [' + args + '];');
+  return new Function(args, `${body};return [${args}];`);
 }
 
 /**
@@ -361,7 +359,7 @@ function cloneOptions(options) {
  * @throws {Error} - Throws if options and original are not identical
  */
 function checkOptions(options, original, name) {
-  if (!optionsEqual(options, original)) throw new Error('options modified in ' + name + ', input: ' + util.inspect(original) + ' output: ' + util.inspect(options));
+  if (!optionsEqual(options, original)) throw new Error(`options modified in ${name}, input: ${util.inspect(original)} output: ${util.inspect(options)}`);
 }
 
 /**

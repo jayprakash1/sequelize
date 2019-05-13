@@ -3,10 +3,10 @@
 const fs = require('fs'),
   path = require('path'),
   _ = require('lodash'),
-  Sequelize = require(__dirname + '/../index'),
-  DataTypes = require(__dirname + '/../lib/data-types'),
-  Config = require(__dirname + '/config/config'),
-  supportShim = require(__dirname + '/supportShim'),
+  Sequelize = require('../index'),
+  DataTypes = require('../lib/data-types'),
+  Config = require('./config/config'),
+  supportShim = require('./supportShim'),
   chai = require('chai'),
   expect = chai.expect,
   AbstractQueryGenerator = require('../lib/dialects/abstract/query-generator');
@@ -21,11 +21,11 @@ chai.should();
 
 // Make sure errors get thrown when testing
 process.on('uncaughtException', e => {
-  console.error('An unhandled exception occured:');
+  console.error('An unhandled exception occurred:');
   throw e;
 });
 Sequelize.Promise.onPossiblyUnhandledRejection(e => {
-  console.error('An unhandled rejection occured:');
+  console.error('An unhandled rejection occurred:');
   throw e;
 });
 Sequelize.Promise.longStackTraces();
@@ -69,21 +69,20 @@ const Support = {
           resolve();
         }
       }).then(() => {
-        const options = _.extend({}, sequelize.options, { storage: p }),
+        const options = Object.assign({}, sequelize.options, { storage: p }),
           _sequelize = new Sequelize(sequelize.config.database, null, null, options);
 
         if (callback) {
           _sequelize.sync({ force: true }).then(() => { callback(_sequelize); });
         } else {
-          return _sequelize.sync({ force: true }).return (_sequelize);
+          return _sequelize.sync({ force: true }).return(_sequelize);
         }
       });
+    }
+    if (callback) {
+      callback(sequelize);
     } else {
-      if (callback) {
-        callback(sequelize);
-      } else {
-        return Sequelize.Promise.resolve(sequelize);
-      }
+      return Sequelize.Promise.resolve(sequelize);
     }
   },
 
@@ -138,29 +137,58 @@ const Support = {
         return sequelize
           .getQueryInterface()
           .dropAllEnums();
+      })
+      .then(() => {
+        return this.dropTestSchemas(sequelize);
       });
   },
 
-  getSupportedDialects() {
-    return fs.readdirSync(__dirname + '/../lib/dialects').filter(file => {
-      return file.indexOf('.js') === -1 && file.indexOf('abstract') === -1;
+  dropTestSchemas(sequelize) {
+
+    const queryInterface = sequelize.getQueryInterface();
+    if (!queryInterface.QueryGenerator._dialect.supports.schemas) {
+      return this.sequelize.drop({});
+    }
+
+    return sequelize.showAllSchemas().then(schemas => {
+      const schemasPromise = [];
+      schemas.forEach(schema => {
+        const schemaName = schema.name ? schema.name : schema;
+        if (schemaName !== sequelize.config.database) {
+          schemasPromise.push(sequelize.dropSchema(schemaName));
+        }
+      });
+      return Promise.all(schemasPromise.map(p => p.catch(e => e)))
+        .then(() => {}, () => {});
     });
+  },
+
+  getSupportedDialects() {
+    return fs.readdirSync(`${__dirname}/../lib/dialects`)
+      .filter(file => !file.includes('.js') && !file.includes('abstract'));
   },
 
   checkMatchForDialects(dialect, value, expectations) {
     if (expectations[dialect]) {
       expect(value).to.match(expectations[dialect]);
     } else {
-      throw new Error('Undefined expectation for "' + dialect + '"!');
+      throw new Error(`Undefined expectation for "${dialect}"!`);
     }
   },
 
   getAbstractQueryGenerator(sequelize) {
-    return Object.assign(
-      {},
-      AbstractQueryGenerator,
-      {options: sequelize.options, _dialect: sequelize.dialect, sequelize, quoteIdentifier(identifier) { return identifier; }}
-    );
+    class ModdedQueryGenerator extends AbstractQueryGenerator {
+      quoteIdentifier(x) {
+        return x;
+      }
+    }
+
+    const queryGenerator = new ModdedQueryGenerator({
+      sequelize,
+      _dialect: sequelize.dialect
+    });
+
+    return queryGenerator;
   },
 
   getTestDialect() {
@@ -170,8 +198,8 @@ const Support = {
       envDialect = 'postgres';
     }
 
-    if (this.getSupportedDialects().indexOf(envDialect) === -1) {
-      throw new Error('The dialect you have passed is unknown. Did you really mean: ' + envDialect);
+    if (!this.getSupportedDialects().includes(envDialect)) {
+      throw new Error(`The dialect you have passed is unknown. Did you really mean: ${envDialect}`);
     }
 
     return envDialect;
@@ -184,7 +212,7 @@ const Support = {
       dialect = 'postgres-native';
     }
 
-    return '[' + dialect.toUpperCase() + '] ' + moduleName;
+    return `[${dialect.toUpperCase()}] ${moduleName}`;
   },
 
   getTestUrl(config) {
@@ -192,42 +220,51 @@ const Support = {
     const dbConfig = config[config.dialect];
 
     if (config.dialect === 'sqlite') {
-      url = 'sqlite://' + dbConfig.storage;
+      url = `sqlite://${dbConfig.storage}`;
     } else {
 
       let credentials = dbConfig.username;
       if (dbConfig.password) {
-        credentials += ':' + dbConfig.password;
+        credentials += `:${dbConfig.password}`;
       }
 
-      url = config.dialect + '://' + credentials
-      + '@' + dbConfig.host + ':' + dbConfig.port + '/' + dbConfig.database;
+      url = `${config.dialect}://${credentials
+      }@${dbConfig.host}:${dbConfig.port}/${dbConfig.database}`;
     }
     return url;
   },
 
-  expectsql(query, expectations) {
+  expectsql(query, assertions) {
+    const expectations = assertions.query || assertions;
     let expectation = expectations[Support.sequelize.dialect.name];
 
     if (!expectation) {
       if (expectations['default'] !== undefined) {
-        expectation = expectations['default']
-          .replace(/\[/g, Support.sequelize.dialect.TICK_CHAR_LEFT)
-          .replace(/\]/g, Support.sequelize.dialect.TICK_CHAR_RIGHT);
+        expectation = expectations['default'];
+        if (typeof expectation === 'string') {
+          expectation = expectation
+            .replace(/\[/g, Support.sequelize.dialect.TICK_CHAR_LEFT)
+            .replace(/\]/g, Support.sequelize.dialect.TICK_CHAR_RIGHT);
+        }
       } else {
-        throw new Error('Undefined expectation for "' + Support.sequelize.dialect.name + '"!');
+        throw new Error(`Undefined expectation for "${Support.sequelize.dialect.name}"!`);
       }
     }
 
-    if (_.isError(query)) {
+    if (query instanceof Error) {
       expect(query.message).to.equal(expectation.message);
     } else {
-      expect(query).to.equal(expectation);
+      expect(query.query || query).to.equal(expectation);
+    }
+
+    if (assertions.bind) {
+      const bind = assertions.bind[Support.sequelize.dialect.name] || assertions.bind['default'] || assertions.bind;
+      expect(query.bind).to.deep.equal(bind);
     }
   }
 };
 
-if (typeof beforeEach !== 'undefined') {
+if (global.beforeEach) {
   beforeEach(function() {
     this.sequelize = Support.sequelize;
   });

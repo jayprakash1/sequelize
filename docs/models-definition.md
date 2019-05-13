@@ -1,6 +1,6 @@
 # Model definition
 
-To define mappings between a model and a table, use the `define` method.
+To define mappings between a model and a table, use the `define` method. Each column must have a datatype, see more about [datatypes][1].
 
 ```js
 const Project = sequelize.define('project', {
@@ -15,7 +15,7 @@ const Task = sequelize.define('task', {
 })
 ```
 
-You can also set some options on each column:
+Apart from [datatypes][1], there are plenty of options that you can set on each column.
 
 ```js
 const Foo = sequelize.define('foo', {
@@ -49,7 +49,7 @@ const Foo = sequelize.define('foo', {
  // autoIncrement can be used to create auto_incrementing integer columns
  incrementMe: { type: Sequelize.INTEGER, autoIncrement: true },
 
- // You can specify a custom field name via the 'field' attribute:
+ // You can specify a custom column name via the 'field' attribute:
  fieldWithUnderscores: { type: Sequelize.STRING, field: 'field_with_underscores' },
 
  // It is possible to create foreign keys:
@@ -66,11 +66,18 @@ const Foo = sequelize.define('foo', {
      // This declares when to check the foreign key constraint. PostgreSQL only.
      deferrable: Sequelize.Deferrable.INITIALLY_IMMEDIATE
    }
+ },
+
+ // It is possible to add coments on columns for MySQL, PostgreSQL and MSSQL only
+ commentMe: {
+   type: Sequelize.INTEGER,
+
+   comment: 'This is a column name that has a comment'
  }
 })
 ```
 
-The comment option can also be used on a table, see [model configuration][0]
+The comment option can also be used on a table, see [model configuration][0].
 
 ## Timestamps
 
@@ -102,175 +109,6 @@ module.exports = {
 
 If you do not want timestamps on your models, only want some timestamps, or you are working with an existing database where the columns are named something else, jump straight on to [configuration ][0]to see how to do that.
 
-
-## Data types
-
-Below are some of the datatypes supported by sequelize. For a full and updated list, see [DataTypes](/variable/index.html#static-variable-DataTypes).
-
-```js
-Sequelize.STRING                      // VARCHAR(255)
-Sequelize.STRING(1234)                // VARCHAR(1234)
-Sequelize.STRING.BINARY               // VARCHAR BINARY
-Sequelize.TEXT                        // TEXT
-Sequelize.TEXT('tiny')                // TINYTEXT
-
-Sequelize.INTEGER                     // INTEGER
-Sequelize.BIGINT                      // BIGINT
-Sequelize.BIGINT(11)                  // BIGINT(11)
-
-Sequelize.FLOAT                       // FLOAT
-Sequelize.FLOAT(11)                   // FLOAT(11)
-Sequelize.FLOAT(11, 12)               // FLOAT(11,12)
-
-Sequelize.REAL                        // REAL        PostgreSQL only.
-Sequelize.REAL(11)                    // REAL(11)    PostgreSQL only.
-Sequelize.REAL(11, 12)                // REAL(11,12) PostgreSQL only.
-
-Sequelize.DOUBLE                      // DOUBLE
-Sequelize.DOUBLE(11)                  // DOUBLE(11)
-Sequelize.DOUBLE(11, 12)              // DOUBLE(11,12)
-
-Sequelize.DECIMAL                     // DECIMAL
-Sequelize.DECIMAL(10, 2)              // DECIMAL(10,2)
-
-Sequelize.DATE                        // DATETIME for mysql / sqlite, TIMESTAMP WITH TIME ZONE for postgres
-Sequelize.DATE(6)                     // DATETIME(6) for mysql 5.6.4+. Fractional seconds support with up to 6 digits of precision
-Sequelize.DATEONLY                    // DATE without time.
-Sequelize.BOOLEAN                     // TINYINT(1)
-
-Sequelize.ENUM('value 1', 'value 2')  // An ENUM with allowed values 'value 1' and 'value 2'
-Sequelize.ARRAY(Sequelize.TEXT)       // Defines an array. PostgreSQL only.
-Sequelize.ARRAY(Sequelize.ENUM)       // Defines an array of ENUM. PostgreSQL only.
-
-Sequelize.JSON                        // JSON column. PostgreSQL, SQLite and MySQL only.
-Sequelize.JSONB                       // JSONB column. PostgreSQL only.
-
-Sequelize.BLOB                        // BLOB (bytea for PostgreSQL)
-Sequelize.BLOB('tiny')                // TINYBLOB (bytea for PostgreSQL. Other options are medium and long)
-
-Sequelize.UUID                        // UUID datatype for PostgreSQL and SQLite, CHAR(36) BINARY for MySQL (use defaultValue: Sequelize.UUIDV1 or Sequelize.UUIDV4 to make sequelize generate the ids automatically)
-
-Sequelize.RANGE(Sequelize.INTEGER)    // Defines int4range range. PostgreSQL only.
-Sequelize.RANGE(Sequelize.BIGINT)     // Defined int8range range. PostgreSQL only.
-Sequelize.RANGE(Sequelize.DATE)       // Defines tstzrange range. PostgreSQL only.
-Sequelize.RANGE(Sequelize.DATEONLY)   // Defines daterange range. PostgreSQL only.
-Sequelize.RANGE(Sequelize.DECIMAL)    // Defines numrange range. PostgreSQL only.
-
-Sequelize.ARRAY(Sequelize.RANGE(Sequelize.DATE)) // Defines array of tstzrange ranges. PostgreSQL only.
-
-Sequelize.GEOMETRY                    // Spatial column.  PostgreSQL (with PostGIS) or MySQL only.
-Sequelize.GEOMETRY('POINT')           // Spatial column with geometry type. PostgreSQL (with PostGIS) or MySQL only.
-Sequelize.GEOMETRY('POINT', 4326)     // Spatial column with geometry type and SRID.  PostgreSQL (with PostGIS) or MySQL only.
-```
-
-The BLOB data type allows you to insert data both as strings and as buffers. When you do a find or findAll on a model which has a BLOB column, that data will always be returned as a buffer.
-
-If you are working with the PostgreSQL TIMESTAMP WITHOUT TIME ZONE and you need to parse it to a different timezone, please use the pg library's own parser:
-
-```js
-require('pg').types.setTypeParser(1114, stringValue => {
-  return new Date(stringValue + '+0000');
-  // e.g., UTC offset. Use any offset that you would like.
-});
-```
-
-In addition to the type mentioned above, integer, bigint, float and double also support unsigned and zerofill properties, which can be combined in any order:
-Be aware that this does not apply for PostgreSQL!
-
-```js
-Sequelize.INTEGER.UNSIGNED              // INTEGER UNSIGNED
-Sequelize.INTEGER(11).UNSIGNED          // INTEGER(11) UNSIGNED
-Sequelize.INTEGER(11).ZEROFILL          // INTEGER(11) ZEROFILL
-Sequelize.INTEGER(11).ZEROFILL.UNSIGNED // INTEGER(11) UNSIGNED ZEROFILL
-Sequelize.INTEGER(11).UNSIGNED.ZEROFILL // INTEGER(11) UNSIGNED ZEROFILL
-```
-
-_The examples above only show integer, but the same can be done with bigint and float_
-
-Usage in object notation:
-
-```js
-// for enums:
-sequelize.define('model', {
-  states: {
-    type:   Sequelize.ENUM,
-    values: ['active', 'pending', 'deleted']
-  }
-})
-```
-
-### Array(ENUM)
-
-Its only supported with PostgreSQL.
-
-Array(Enum) type require special treatment. Whenever Sequelize will talk to database it has to typecast Array values with ENUM name.
-
-So this enum name must follow this pattern `enum_<table_name>_<col_name>`. If you are using `sync` then correct name will automatically be generated.
-
-### Range types
-
-Since range types have extra information for their bound inclusion/exclusion it's not
-very straightforward to just use a tuple to represent them in javascript.
-
-When supplying ranges as values you can choose from the following APIs:
-
-```js
-// defaults to '["2016-01-01 00:00:00+00:00", "2016-02-01 00:00:00+00:00")'
-// inclusive lower bound, exclusive upper bound
-Timeline.create({ range: [new Date(Date.UTC(2016, 0, 1)), new Date(Date.UTC(2016, 1, 1))] });
-
-// control inclusion
-const range = [new Date(Date.UTC(2016, 0, 1)), new Date(Date.UTC(2016, 1, 1))];
-range.inclusive = false; // '()'
-range.inclusive = [false, true]; // '(]'
-range.inclusive = true; // '[]'
-range.inclusive = [true, false]; // '[)'
-
-// or as a single expression
-const range = [
-  { value: new Date(Date.UTC(2016, 0, 1)), inclusive: false },
-  { value: new Date(Date.UTC(2016, 1, 1)), inclusive: true },
-];
-// '("2016-01-01 00:00:00+00:00", "2016-02-01 00:00:00+00:00"]'
-
-// composite form
-const range = [
-  { value: new Date(Date.UTC(2016, 0, 1)), inclusive: false },
-  new Date(Date.UTC(2016, 1, 1)),
-];
-// '("2016-01-01 00:00:00+00:00", "2016-02-01 00:00:00+00:00")'
-
-Timeline.create({ range });
-```
-
-However, please note that whenever you get back a value that is range you will
-receive:
-
-```js
-// stored value: ("2016-01-01 00:00:00+00:00", "2016-02-01 00:00:00+00:00"]
-range // [Date, Date]
-range.inclusive // [false, true]
-```
-
-Make sure you turn that into a serializable format before serialization since array
-extra properties will not be serialized.
-
-**Special Cases**
-
-```js
-// empty range:
-Timeline.create({ range: [] }); // range = 'empty'
-
-// Unbounded range:
-Timeline.create({ range: [null, null] }); // range = '[,)'
-// range = '[,"2016-01-01 00:00:00+00:00")'
-Timeline.create({ range: [null, new Date(Date.UTC(2016, 0, 1))] });
-
-// Infinite range:
-// range = '[-infinity,"2016-01-01 00:00:00+00:00")'
-Timeline.create({ range: [-Infinity, new Date(Date.UTC(2016, 0, 1))] });
-
-```
 
 ## Deferrable
 
@@ -334,7 +172,9 @@ Employee
 
 ### Defining as part of the model options
 
-Below is an example of defining the getters and setters in the model options. The `fullName` getter,  is an example of how you can define pseudo properties on your models - attributes which are not actually part of your database schema. In fact, pseudo properties can be defined in two ways: using model getters, or by using a column with the [`VIRTUAL` datatype](/variable/index.html#static-variable-DataTypes). Virtual datatypes can have validations, while getters for virtual attributes cannot.
+Below is an example of defining the getters and setters in the model options.
+
+The `fullName` getter, is an example of how you can define pseudo properties on your models - attributes which are not actually part of your database schema. In fact, pseudo properties can be defined in two ways: using model getters, or by using a column with the [`VIRTUAL` datatype](/variable/index.html#static-variable-DataTypes). Virtual datatypes can have validations, while getters for virtual attributes cannot.
 
 Note that the `this.firstname` and `this.lastname` references in the `fullName` getter function will trigger a call to the respective getter functions. If you do not want that then use the `getDataValue()` method to access the raw value (see below).
 
@@ -345,7 +185,7 @@ const Foo = sequelize.define('foo', {
 }, {
   getterMethods: {
     fullName() {
-      return this.firstname + ' ' + this.lastname
+      return this.firstname + ' ' + this.lastname;
     }
   },
 
@@ -355,7 +195,7 @@ const Foo = sequelize.define('foo', {
 
       this.setDataValue('firstname', names.slice(0, -1).join(' '));
       this.setDataValue('lastname', names.slice(-1).join(' '));
-    },
+    }
   }
 });
 ```
@@ -384,15 +224,17 @@ set(title) {
 
 ## Validations
 
-Model validations, allow you to specify format/content/inheritance validations for each attribute of the model.
+Model validations allow you to specify format/content/inheritance validations for each attribute of the model.
 
 Validations are automatically run on `create`, `update` and `save`. You can also call `validate()` to manually validate an instance.
 
-The validations are implemented by [validator.js][3].
+### Per-attribute validations
+
+You can define your custom validators or use several built-in validators, implemented by [validator.js][3], as shown below.
 
 ```js
 const ValidateMe = sequelize.define('foo', {
-  foo: {
+  bar: {
     type: Sequelize.STRING,
     validate: {
       is: ["^[a-z]+$",'i'],     // will only allow letters
@@ -428,12 +270,15 @@ const ValidateMe = sequelize.define('foo', {
       min: 23,                  // only allow values >= 23
       isCreditCard: true,       // check for valid credit card numbers
 
-      // custom validations are also possible:
+      // Examples of custom validators:
       isEven(value) {
-        if (parseInt(value) % 2 != 0) {
-          throw new Error('Only even values are allowed!')
-          // we also are in the model's context here, so this.otherField
-          // would get the value of otherField if it existed
+        if (parseInt(value) % 2 !== 0) {
+          throw new Error('Only even values are allowed!');
+        }
+      }
+      isGreaterThanOtherField(value) {
+        if (parseInt(value) <= parseInt(this.otherField)) {
+          throw new Error('Bar must be greater than otherField.');
         }
       }
     }
@@ -443,7 +288,7 @@ const ValidateMe = sequelize.define('foo', {
 
 Note that where multiple arguments need to be passed to the built-in validation functions, the arguments to be passed must be in an array. But if a single array argument is to be passed, for instance an array of acceptable strings for `isIn`, this will be interpreted as multiple string arguments instead of one array argument. To work around this pass a single-length array of arguments, such as `[['one', 'two']]` as shown above.
 
-To use a custom error message instead of that provided by validator.js, use an object instead of the plain value or array of arguments, for example a validator which needs no argument can be given a custom message with
+To use a custom error message instead of that provided by [validator.js][3], use an object instead of the plain value or array of arguments, for example a validator which needs no argument can be given a custom message with
 
 ```js
 isInt: {
@@ -451,7 +296,7 @@ isInt: {
 }
 ```
 
-or if arguments need to also be passed add an`args`property:
+or if arguments need to also be passed add an `args` property:
 
 ```js
 isIn: {
@@ -460,17 +305,68 @@ isIn: {
 }
 ```
 
-When using custom validator functions the error message will be whatever message the thrown`Error`object holds.
+When using custom validator functions the error message will be whatever message the thrown `Error` object holds.
 
 See [the validator.js project][3] for more details on the built in validation methods.
 
-**Hint: **You can also define a custom function for the logging part. Just pass a function. The first parameter will be the string that is logged.
+**Hint:** You can also define a custom function for the logging part. Just pass a function. The first parameter will be the string that is logged.
 
-### Validators and `allowNull`
+### Per-attribute validators and `allowNull`
 
-If a particular field of a model is set to allow null (with `allowNull: true`) and that value has been set to `null` , its validators do not run. This means you can, for instance, have a string field which validates its length to be at least 5 characters, but which also allows`null`.
+If a particular field of a model is set to not allow null (with `allowNull: false`) and that value has been set to `null`, all validators will be skipped and a `ValidationError` will be thrown.
 
-### Model validations
+On the other hand, if it is set to allow null (with `allowNull: true`) and that value has been set to `null`, only the built-in validators will be skipped, while the custom validators will still run.
+
+This means you can, for instance, have a string field which validates its length to be between 5 and 10 characters, but which also allows `null` (since the length validator will be skipped automatically when the value is `null`):
+
+```js
+const User = sequelize.define('user', {
+  username: {
+    type: Sequelize.STRING,
+    allowNull: true,
+    validate: {
+      len: [5, 10]
+    }
+  }
+});
+```
+
+You also can conditionally allow `null` values, with a custom validator, since it won't be skipped:
+
+```js
+const User = sequelize.define('user', {
+  age: Sequelize.INTEGER,
+  name: {
+    type: Sequelize.STRING,
+    allowNull: true,
+    validate: {
+      customValidator: function(value) {
+        if (value === null && this.age !== 10) {
+          throw new Error("name can't be null unless age is 10");
+        }
+      })
+    }
+  }
+});
+```
+
+You can customize `allowNull` error message by setting the `notNull` validator:
+
+```js
+const User = sequelize.define('user', {
+  name: {
+    type: Sequelize.STRING,
+    allowNull: false,
+    validate: {
+      notNull: {
+        msg: 'Please enter your name'
+      }
+    }
+  }
+});
+```
+
+### Model-wide validations
 
 Validations can also be defined to check the model after the field-specific validators. Using this you could, for example, ensure either neither of `latitude` and `longitude` are set or both, and fail if one but not the other is set.
 
@@ -516,6 +412,8 @@ In this simple case an object fails validation if either latitude or longitude i
 }
 ```
 
+Such validation could have also been done with a custom validator defined on a single attribute (such as the `latitude` attribute, by checking `(value === null) !== (this.longitude === null)`), but the model-wide validation approach is cleaner.
+
 ## Configuration
 
 You can also influence the way Sequelize handles your column names:
@@ -530,8 +428,8 @@ const Bar = sequelize.define('bar', { /* bla */ }, {
   // timestamps are enabled
   paranoid: true,
 
-  // don't use camelcase for automatically added attributes but underscore style
-  // so updatedAt will be updated_at
+  // Will automatically set field option for all attributes to snake cased name.
+  // Does not override attribute with field option already defined
   underscored: true,
 
   // disable the modification of table names; By default, sequelize will automatically
@@ -769,6 +667,6 @@ sequelize.define('user', {}, {
 
 
 [0]: /manual/tutorial/models-definition.html#configuration
+[1]: /manual/tutorial/data-types.html
 [3]: https://github.com/chriso/validator.js
 [5]: /docs/final/misc#asynchronicity
-[6]: http://bluebirdjs.com/docs/api/spread.html

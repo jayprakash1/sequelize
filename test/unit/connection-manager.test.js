@@ -3,15 +3,15 @@
 const chai = require('chai'),
   sinon = require('sinon'),
   expect = chai.expect,
-  Support = require(__dirname + '/support'),
-  Sequelize = require(__dirname + '/../../index'),
-  ConnectionManager = require(__dirname + '/../../lib/dialects/abstract/connection-manager'),
+  Support = require('./support'),
+  Sequelize = require('../../index'),
+  ConnectionManager = require('../../lib/dialects/abstract/connection-manager'),
   Promise = Sequelize.Promise;
 
 describe('connection manager', () => {
   describe('_connect', () => {
     beforeEach(function() {
-      this.sinon = sinon.sandbox.create();
+      this.sinon = sinon.createSandbox();
       this.connection = {};
 
       this.dialect = {

@@ -2,10 +2,11 @@
 
 const chai = require('chai'),
   expect = chai.expect,
-  Support = require(__dirname + '/../support'),
+  Sequelize = require('../../../index'),
+  Promise = Sequelize.Promise,
+  Support = require('../support'),
   current = Support.sequelize,
   sinon = require('sinon'),
-  Promise = current.Promise,
   DataTypes = require('../../../lib/data-types'),
   _ = require('lodash');
 
@@ -24,9 +25,9 @@ describe(Support.getTestDialectTeaser('Model'), () => {
     });
 
     beforeEach(function() {
-      this.deloptions = {where: {secretValue: '1'}};
+      this.deloptions = { where: { secretValue: '1' } };
       this.cloneOptions = _.clone(this.deloptions);
-      this.stubDelete.reset();
+      this.stubDelete.resetHistory();
     });
 
     afterEach(function() {
@@ -42,7 +43,7 @@ describe(Support.getTestDialectTeaser('Model'), () => {
       const Where = function() { this.secretValue = '1'; };
 
       expect(() => {
-        User.destroy({where: new Where()});
+        User.destroy({ where: new Where() });
       }).to.throw();
 
     });

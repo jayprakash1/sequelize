@@ -2,7 +2,7 @@
 
 const chai = require('chai'),
   expect = chai.expect,
-  Support   = require(__dirname + '/../support'),
+  Support   = require('../support'),
   current   = Support.sequelize,
   Sequelize = Support.Sequelize,
   sinon     = require('sinon');
@@ -22,8 +22,8 @@ describe(Support.getTestDialectTeaser('Instance'), () => {
       before(() => {
         stub = sinon.stub(current, 'query').returns(
           Sequelize.Promise.resolve({
-            _previousDataValues: {id: 3},
-            dataValues: {id: 1}
+            _previousDataValues: { id: 3 },
+            dataValues: { id: 1 }
           })
         );
       });
@@ -33,7 +33,7 @@ describe(Support.getTestDialectTeaser('Instance'), () => {
       });
 
       it('should allow decrements even if options are not given', () => {
-        instance = Model.build({id: 3}, {isNewRecord: false});
+        instance = Model.build({ id: 3 }, { isNewRecord: false });
         expect(() => {
           instance.decrement(['id']);
         }).to.not.throw();

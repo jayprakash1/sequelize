@@ -3,7 +3,7 @@
 const chai = require('chai'),
   sinon = require('sinon'),
   expect = chai.expect,
-  Support = require(__dirname + '/../support'),
+  Support = require('../support'),
   dialect = Support.getTestDialect();
 
 describe(Support.getTestDialectTeaser('Sequelize'), () => {
@@ -73,7 +73,7 @@ describe(Support.getTestDialectTeaser('Sequelize'), () => {
       it('calls the custom logger method with options', function() {
         const message = 'om nom';
         const timeTaken = 5;
-        const options = {correlationId: 'ABC001'};
+        const options = { correlationId: 'ABC001' };
         this.sequelize.log(message, timeTaken, options);
         expect(this.spy.withArgs(message, timeTaken, options).calledOnce).to.be.true;
       });

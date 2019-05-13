@@ -23,7 +23,7 @@ Built instances will automatically get default values when they were defined&col
 // first define the model
 const Task = sequelize.define('task', {
   title: Sequelize.STRING,
-  rating: { type: Sequelize.STRING, defaultValue: 3 }
+  rating: { type: Sequelize.TINYINT, defaultValue: 3 }
 })
  
 // now instantiate an object
@@ -58,7 +58,7 @@ Task
 
 ## Creating persistent instances
 
-Besides constructing objects&comma; that needs an explicit save call to get stored in the database&comma; there is also the possibility to do all those steps with one single command&period; It's called `create`.
+While an instance created with `.build()` requires an explicit `.save()` call to be stored in the database&comma; `.create()` omits that requirement altogether and automatically stores your instance's data once called.
 
 ```js
 Task.create({ title: 'foo', description: 'bar', deadline: new Date() }).then(task => {
@@ -128,6 +128,23 @@ If the `paranoid` options is true, the object will not be deleted, instead the `
 task.destroy({ force: true })
 ```
 
+After an object is soft deleted in `paranoid` mode, you will not be able to create a new instance with the same primary key
+until you have force-deleted the old instance.
+
+## Restoring soft-deleted instances
+
+If you have soft-deleted an instance of a model with `paranoid: true`, and would like to undo the deletion, use the `restore` method:
+
+```js
+Task.create({ title: 'a task' }).then(task => {
+  // now you see me...
+  return task.destroy();
+}).then(() => {
+  // now i'm gone, but wait...
+  return task.restore();
+})
+```
+
 ## Working in bulk (creating, updating and destroying multiple rows at once)
 
 In addition to updating a single instance, you can also create, update, and delete multiple instances at once. The functions you are looking for are called
@@ -164,10 +181,9 @@ Task.bulkCreate([
     { status: 'inactive' }, /* set attributes' value */
     { where: { subject: 'programming' }} /* where criteria */
   );
-}).spread((affectedCount, affectedRows) => {
-  // .update returns two values in an array, therefore we use .spread
+}).then(([affectedCount, affectedRows]) => {
   // Notice that affectedRows will only be defined in dialects which support returning: true
-  
+
   // affectedCount will be 2
   return Task.findAll();
 }).then(tasks => {
@@ -235,12 +251,16 @@ Tasks.bulkCreate([
   [
     { record:
     ...
+    name: 'SequelizeBulkRecordError',
+    message: 'Validation error',
     errors:
       { name: 'SequelizeValidationError',
         message: 'Validation error',
         errors: [Object] } },
     { record:
       ...
+      name: 'SequelizeBulkRecordError',
+      message: 'Validation error',
       errors:
         { name: 'SequelizeValidationError',
         message: 'Validation error',
@@ -298,7 +318,7 @@ In order to increment values of an instance without running into concurrency iss
 First of all you can define a field and the value you want to add to it&period;
 
 ```js
-User.findById(1).then(user => {
+User.findByPk(1).then(user => {
   return user.increment('my-integer-field', {by: 2})
 }).then(user => {
   // Postgres will return the updated user by default (unless disabled by setting { returning: false })
@@ -309,7 +329,7 @@ User.findById(1).then(user => {
 Second&comma; you can define multiple fields and the value you want to add to them&period;
 
 ```js
-User.findById(1).then(user => {
+User.findByPk(1).then(user => {
   return user.increment([ 'my-integer-field', 'my-very-other-field' ], {by: 2})
 }).then(/* ... */)
 ```
@@ -317,7 +337,7 @@ User.findById(1).then(user => {
 Third&comma; you can define an object containing fields and its increment values&period;
 
 ```js
-User.findById(1).then(user => {
+User.findByPk(1).then(user => {
   return user.increment({
     'my-integer-field':    2,
     'my-very-other-field': 3
@@ -332,7 +352,7 @@ In order to decrement values of an instance without running into concurrency iss
 First of all you can define a field and the value you want to add to it&period;
 
 ```js
-User.findById(1).then(user => {
+User.findByPk(1).then(user => {
   return user.decrement('my-integer-field', {by: 2})
 }).then(user => {
   // Postgres will return the updated user by default (unless disabled by setting { returning: false })
@@ -343,7 +363,7 @@ User.findById(1).then(user => {
 Second&comma; you can define multiple fields and the value you want to add to them&period;
 
 ```js
-User.findById(1).then(user => {
+User.findByPk(1).then(user => {
   return user.decrement([ 'my-integer-field', 'my-very-other-field' ], {by: 2})
 }).then(/* ... */)
 ```
@@ -351,7 +371,7 @@ User.findById(1).then(user => {
 Third&comma; you can define an object containing fields and its decrement values&period;
 
 ```js
-User.findById(1).then(user => {
+User.findByPk(1).then(user => {
   return user.decrement({
     'my-integer-field':    2,
     'my-very-other-field': 3

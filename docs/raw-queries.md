@@ -5,7 +5,7 @@ As there are often use cases in which it is just easier to execute raw / already
 By default the function will return two arguments - a results array, and an object containing metadata (affected rows etc.). Note that since this is a raw query, the metadata (property names etc.) is dialect specific. Some dialects return the metadata "within" the results object (as properties on an array). However, two arguments will always be returned, but for MSSQL and MySQL it will be two references to the same object.
 
 ```js
-sequelize.query("UPDATE users SET y = 42 WHERE x = 12").spread((results, metadata) => {
+sequelize.query("UPDATE users SET y = 42 WHERE x = 12").then(([results, metadata]) => {
   // Results will be an empty array and metadata will contain the number of affected rows.
 })
 ```
@@ -25,9 +25,14 @@ A second option is the model. If you pass a model the returned data will be inst
 
 ```js
 // Callee is the model definition. This allows you to easily map a query to a predefined model
-sequelize.query('SELECT * FROM projects', { model: Projects }).then(projects => {
-  // Each record will now be a instance of Project
-})
+sequelize
+  .query('SELECT * FROM projects', {
+    model: Projects,
+    mapToModel: true // pass true here if you have any mapped fields
+  })
+  .then(projects => {
+    // Each record will now be an instance of Project
+  })
 ```
 
 ## Replacements

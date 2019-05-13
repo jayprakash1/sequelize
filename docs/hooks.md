@@ -65,13 +65,13 @@ const User = sequelize.define('user', {
   }
 });
 
-// Method 2 via the .hook() method (or its alias .addHook() method)
-User.hook('beforeValidate', (user, options) => {
+// Method 2 via the .addHook() method
+User.addHook('beforeValidate', (user, options) => {
   user.mood = 'happy';
 });
 
 User.addHook('afterValidate', 'someCustomName', (user, options) => {
-  return sequelize.Promise.reject(new Error("I'm afraid I can't let you do that!"));
+  return Promise.reject(new Error("I'm afraid I can't let you do that!"));
 });
 
 // Method 3 via the direct method
@@ -107,13 +107,13 @@ You can have many hooks with same name. Calling `.removeHook()` will remove all 
 ## Global / universal hooks
 Global hooks are hooks which are run for all models. They can define behaviours that you want for all your models, and are especially useful for plugins. They can be defined in two ways, which have slightly different semantics:
 
-### Sequelize.options.define (default hook)
+### Default Hooks (Sequelize.options.define)
 ```js
 const sequelize = new Sequelize(..., {
     define: {
         hooks: {
             beforeCreate: () => {
-                // Do stuff
+              // Do stuff
             }
         }
     }
@@ -136,15 +136,14 @@ User.create() // Runs the global hook
 Project.create() // Runs its own hook (because the global hook is overwritten)
 ```
 
-### Sequelize.addHook (permanent hook)
+### Permanent Hooks (Sequelize.addHook)
 ```js
 sequelize.addHook('beforeCreate', () => {
     // Do stuff
 });
 ```
 
-This hooks is always run before create, regardless of whether the model specifies its own `beforeCreate` hook:
-
+This hook is always run before create, regardless of whether the model specifies its own `beforeCreate` hook. Local hooks are always run before global hooks:
 
 ```js
 const User = sequelize.define('user');
@@ -160,10 +159,43 @@ User.create() // Runs the global hook
 Project.create() // Runs its own hook, followed by the global hook
 ```
 
-Local hooks are always run before global hooks.
+Permanent hooks may also be defined in `Sequelize.options`:
 
+```js
+new Sequelize(..., {
+    hooks: {
+        beforeCreate: () => {
+            // do stuff
+        }
+    }
+});
+```
 
-### Instance hooks
+### Connection Hooks
+
+Sequelize provides two hooks that are executed immediately before and after a database connection is obtained:
+
+```
+beforeConnect(config)
+afterConnect(connection, config)
+```
+
+These hooks can be useful if you need to asynchronously obtain database credentials, or need to directly access the low-level database connection after it has been created.
+
+For example, we can asynchronously obtain a database password from a rotating token store, and mutate Sequelize's configuration object with the new credentials:
+
+```js
+sequelize.beforeConnect((config) => {
+    return getAuthToken()
+        .then((token) => {
+             config.password = token;
+         });
+    });
+```
+
+These hooks may _only_ be declared as a permanent global hook, as the connection pool is shared by all models.
+
+## Instance hooks
 
 The following hooks will emit whenever you're editing a single object
 
@@ -214,6 +246,8 @@ afterBulkDestroy(options)
 
 If you want to emit hooks for each individual record, along with the bulk hooks you can pass `individualHooks: true` to the call.
 
+**WARNING**: if you use individual hooks, *all instances that are updated or destroyed will get loaded into memory* before your hooks are called.  The number of instances Sequelize can handle with individual hooks is limited by available memory.
+
 ```js
 Model.destroy({ where: {accessLevel: 0}, individualHooks: true});
 // Will select all records that are about to be deleted and emit before- + after- Destroy on each instance
@@ -252,15 +286,15 @@ Model.beforeBulkDestroy(({where, individualHooks}) => {
 Model.destroy({ where: {username: 'Tom'}} /*where argument*/)
 ```
 
-If you use `Model.bulkCreate(...)` with the `updatesOnDuplicate` option, changes made in the hook to fields that aren't given in the `updatesOnDuplicate` array will not be persisted to the database. However it is possible to change the updatesOnDuplicate option inside the hook if this is what you want.
+If you use `Model.bulkCreate(...)` with the `updateOnDuplicate` option, changes made in the hook to fields that aren't given in the `updateOnDuplicate` array will not be persisted to the database. However it is possible to change the updateOnDuplicate option inside the hook if this is what you want.
 
 ```js
-// Bulk updating existing users with updatesOnDuplicate option
+// Bulk updating existing users with updateOnDuplicate option
 Users.bulkCreate([
   { id: 1, isMember: true },
   { id: 2, isMember: false }
 ], {
-  updatesOnDuplicate: ['isMember']
+  updateOnDuplicate: ['isMember']
 });
 
 User.beforeBulkCreate((users, options) => {
@@ -270,9 +304,9 @@ User.beforeBulkCreate((users, options) => {
     }
   }
 
-  // Add memberSince to updatesOnDuplicate otherwise the memberSince date wont be
+  // Add memberSince to updateOnDuplicate otherwise the memberSince date wont be
   // saved to the database
-  options.updatesOnDuplicate.push('memberSince');
+  options.updateOnDuplicate.push('memberSince');
 });
 ```
 
@@ -316,7 +350,7 @@ Note that many model operations in Sequelize allow you to specify a transaction 
 ```js
 // Here we use the promise-style of async hooks rather than
 // the callback.
-User.hook('afterCreate', (user, options) => {
+User.addHook('afterCreate', (user, options) => {
   // 'transaction' will be available in options.transaction
 
   // This operation will be part of the same transaction as the

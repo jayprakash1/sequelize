@@ -54,6 +54,9 @@ const sequelize = new Sequelize('database', 'username', 'password', {
 
   // custom host; default: localhost
   host: 'my.server.tld',
+  // for postgres, you can also specify an absolute path to a directory
+  // containing a UNIX socket to connect over
+  // host: '/sockets/psql_sockets'.
  
   // custom port; default: dialect default
   port: 12345,
@@ -94,7 +97,7 @@ const sequelize = new Sequelize('database', 'username', 'password', {
   //   sequelize.define(name, attributes, { timestamps: false })
   // so defining the timestamps for each model will be not necessary
   define: {
-    underscored: false
+    underscored: false,
     freezeTableName: false,
     charset: 'utf8',
     dialectOptions: {
@@ -167,7 +170,22 @@ const sequelize = new Sequelize('database', 'username', 'password', {
 
 **Note:** You can pass options directly to dialect library by setting the
 `dialectOptions` parameter. See [Options][0]
-for examples (currently only mysql is supported).
+
+### MariaDB
+
+Library for MariaDB is `mariadb`.
+
+```js
+const sequelize = new Sequelize('database', 'username', 'password', {
+  dialect: 'mariadb',
+  dialectOptions: {connectTimeout: 1000} // mariadb connector option
+})
+```
+
+or using connection String:
+```js
+const sequelize = new Sequelize('mariadb://user:password@example.com:9821/database')
+```
 
 ### SQLite
 
@@ -199,6 +217,19 @@ The library for PostgreSQL is`pg@^5.0.0 || ^6.0.0` You'll just need to define th
 const sequelize = new Sequelize('database', 'username', 'password', {
   // gimme postgres, please!
   dialect: 'postgres'
+})
+```
+
+To connect over a unix domain socket, specify the path to the socket directory
+in the `host` option.
+
+The socket path must start with `/`.
+
+```js
+const sequelize = new Sequelize('database', 'username', 'password', {
+  // gimme postgres, please!
+  dialect: 'postgres',
+  host: '/path/to/socket_directory'
 })
 ```
 
@@ -249,7 +280,7 @@ sequelize
     logging: console.log,
 
     // If plain is true, then sequelize will only return the first
-    // record of the result set. In case of false it will all records.
+    // record of the result set. In case of false it will return all records.
     plain: false,
 
     // Set this to true if you don't have a model definition for your query.
@@ -283,7 +314,7 @@ will be thrown.
 sequelize
   .query(
     'SELECT * FROM projects WHERE status = ?',
-    { raw: true, replacements: ['active']
+    { raw: true, replacements: ['active'] }
   )
   .then(projects => {
     console.log(projects)
@@ -318,7 +349,7 @@ sequelize.query('select 1 as `foo.bar.baz`').then(rows => {
 ```
 
 
-[0]: /docs/latest/usage#options
+[0]: /manual/installation/usage.html#options
 [1]: /manual/tutorial/models-definition.html#configuration
 [2]: /class/lib/sequelize.js~Sequelize.html
 [3]: /manual/tutorial/transactions.html

@@ -9,7 +9,7 @@ In this document we'll explore what finder methods can do:
 ### `find` - Search for one specific element in the database
 ```js
 // search for known ids
-Project.findById(123).then(project => {
+Project.findByPk(123).then(project => {
   // project will be an instance of Project and stores the content of the table entry
   // with id 123. if such an entry is not defined you will get null
 })
@@ -38,7 +38,7 @@ Let's assume we have an empty database with a `User` model which has a `username
 ```js
 User
   .findOrCreate({where: {username: 'sdepold'}, defaults: {job: 'Technical Lead JavaScript'}})
-  .spread((user, created) => {
+  .then(([user, created]) => {
     console.log(user.get({
       plain: true
     }))
@@ -56,7 +56,7 @@ User
       },
       true ]
 
- In the example above, the "spread" on line 39 divides the array into its 2 parts and passes them as arguments to the callback function defined beginning at line 39, which treats them as "user" and "created" in this case. (So "user" will be the object from index 0 of the returned array and "created" will equal "true".)
+ In the example above, the array spread on line 3 divides the array into its 2 parts and passes them as arguments to the callback function defined beginning at line 39, which treats them as "user" and "created" in this case. (So "user" will be the object from index 0 of the returned array and "created" will equal "true".)
     */
   })
 ```
@@ -65,7 +65,7 @@ The code created a new instance. So when we already have an instance ...
 ```js
 User.create({ username: 'fnord', job: 'omnomnom' })
   .then(() => User.findOrCreate({where: {username: 'fnord'}, defaults: {job: 'something else'}}))
-  .spread((user, created) => {
+  .then(([user, created]) => {
     console.log(user.get({
       plain: true
     }))
@@ -82,7 +82,7 @@ User.create({ username: 'fnord', job: 'omnomnom' })
       },
       false
     ]
-    The array returned by findOrCreate gets spread into its 2 parts by the "spread" on line 69, and the parts will be passed as 2 arguments to the callback function beginning on line 69, which will then treat them as "user" and "created" in this case. (So "user" will be the object from index 0 of the returned array and "created" will equal "false".)
+    The array returned by findOrCreate gets spread into its 2 parts by the array spread on line 3, and the parts will be passed as 2 arguments to the callback function beginning on line 69, which will then treat them as "user" and "created" in this case. (So "user" will be the object from index 0 of the returned array and "created" will equal "false".)
     */
   })
 ```
@@ -147,11 +147,6 @@ The options object that you pass to `findAndCountAll` is the same as for `findAl
 ```js
 // find multiple entries
 Project.findAll().then(projects => {
-  // projects will be an array of all Project instances
-})
-
-// also possible:
-Project.all().then(projects => {
   // projects will be an array of all Project instances
 })
 
@@ -280,7 +275,7 @@ Project.findAll({ offset: 10, limit: 2 })
 The syntax for grouping and ordering are equal, so below it is only explained with a single example for group, and the rest for order. Everything you see below can also be done for group
 
 ```js
-Project.findAll({order: 'title DESC'})
+Project.findAll({order: [['title', 'DESC']]})
 // yields ORDER BY title DESC
 
 Project.findAll({group: 'name'})
@@ -344,7 +339,7 @@ Project.count({ where: {'id': {[Op.gt]: 25}} }).then(c => {
 
 ### `max` - Get the greatest value of a specific attribute within a specific table
 
-And here is a method for getting the max value of an attribute:f
+And here is a method for getting the max value of an attribute
 
 ```js
 /*
