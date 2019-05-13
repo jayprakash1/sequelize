@@ -47,7 +47,7 @@ describe(Support.getTestDialectTeaser('Model'), () => {
       expect(User.tableName).to.equal('SuperUsers');
     });
 
-    it('uses checks to make sure dao factory isnt leaking on multiple define', function() {
+    it('uses checks to make sure dao factory is not leaking on multiple define', function() {
       this.sequelize.define('SuperUser', {}, { freezeTableName: false });
       const factorySize = this.sequelize.modelManager.all.length;
 
@@ -57,7 +57,7 @@ describe(Support.getTestDialectTeaser('Model'), () => {
       expect(factorySize).to.equal(factorySize2);
     });
 
-    it('allows us us to predefine the ID column with our own specs', function() {
+    it('allows us to predefine the ID column with our own specs', function() {
       const User = this.sequelize.define('UserCol', {
         id: {
           type: Sequelize.STRING,
@@ -261,8 +261,8 @@ describe(Support.getTestDialectTeaser('Model'), () => {
 
       return User.sync({ force: true, logging: _.after(2, _.once(sql => {
         if (dialect === 'mssql') {
-          expect(sql).to.match(/CONSTRAINT\s*([`"\[]?user_and_email[`"\]]?)?\s*UNIQUE\s*\([`"\[]?username[`"\]]?, [`"\[]?email[`"\]]?\)/);
-          expect(sql).to.match(/CONSTRAINT\s*([`"\[]?a_and_b[`"\]]?)?\s*UNIQUE\s*\([`"\[]?aCol[`"\]]?, [`"\[]?bCol[`"\]]?\)/);
+          expect(sql).to.match(/CONSTRAINT\s*([`"[]?user_and_email[`"\]]?)?\s*UNIQUE\s*\([`"[]?username[`"\]]?, [`"[]?email[`"\]]?\)/);
+          expect(sql).to.match(/CONSTRAINT\s*([`"[]?a_and_b[`"\]]?)?\s*UNIQUE\s*\([`"[]?aCol[`"\]]?, [`"[]?bCol[`"\]]?\)/);
         } else {
           expect(sql).to.match(/UNIQUE\s*([`"]?user_and_email[`"]?)?\s*\([`"]?username[`"]?, [`"]?email[`"]?\)/);
           expect(sql).to.match(/UNIQUE\s*([`"]?a_and_b[`"]?)?\s*\([`"]?aCol[`"]?, [`"]?bCol[`"]?\)/);
@@ -355,7 +355,6 @@ describe(Support.getTestDialectTeaser('Model'), () => {
     });
 
     it('should allow the user to specify indexes in options', function() {
-      this.retries(3);
       const indices = [{
         name: 'a_b_uniq',
         unique: true,
@@ -813,6 +812,40 @@ describe(Support.getTestDialectTeaser('Model'), () => {
     });
   });
 
+  describe('save', () => {
+    it('should mapping the correct fields when saving instance. see #10589', function() {
+      const User = this.sequelize.define('User', {
+        id3: {
+          field: 'id',
+          type: Sequelize.INTEGER,
+          primaryKey: true
+        },
+        id: {
+          field: 'id2',
+          type: Sequelize.INTEGER,
+          allowNull: false
+        },
+        id2: {
+          field: 'id3',
+          type: Sequelize.INTEGER,
+          allowNull: false
+        }
+      });
+
+      // Setup
+      return this.sequelize.sync({ force: true }).then(() => {
+        return User.create({ id3: 94, id: 87, id2: 943 });
+      })
+        // Test
+        .then(() => User.findByPk(94))
+        .then(user => user.set('id2', 8877))
+        .then(user => user.save({ id2: 8877 }))
+        // Validate
+        .then(() => User.findByPk(94))
+        .then(user => expect(user.id2).to.equal(8877));
+    });
+  });
+
   describe('update', () => {
     it('throws an error if no where clause is given', function() {
       const User = this.sequelize.define('User', { username: DataTypes.STRING });
@@ -825,6 +858,39 @@ describe(Support.getTestDialectTeaser('Model'), () => {
         expect(err).to.be.an.instanceof(Error);
         expect(err.message).to.equal('Missing where attribute in the options parameter');
       });
+    });
+
+    it('should mapping the correct fields when updating instance. see #10589', function() {
+      const User = this.sequelize.define('User', {
+        id3: {
+          field: 'id',
+          type: Sequelize.INTEGER,
+          primaryKey: true
+        },
+        id: {
+          field: 'id2',
+          type: Sequelize.INTEGER,
+          allowNull: false
+        },
+        id2: {
+          field: 'id3',
+          type: Sequelize.INTEGER,
+          allowNull: false
+        }
+      });
+
+      // Setup
+      return this.sequelize.sync({ force: true }).then(() => {
+        return User.create({ id3: 94, id: 87, id2: 943 });
+      })
+        // Test
+        .then(() => User.findByPk(94))
+        .then(user => {
+          return user.update({ id2: 8877 });
+        })
+        // Validate
+        .then(() => User.findByPk(94))
+        .then(user => expect(user.id2).to.equal(8877));
     });
 
     if (current.dialect.supports.transactions) {
@@ -1847,6 +1913,19 @@ describe(Support.getTestDialectTeaser('Model'), () => {
       });
     });
 
+    describe('aggregate', () => {
+      if (dialect === 'mssql') {
+        return;
+      }
+      it('allows grouping by aliased attribute', function() {
+        return this.User.aggregate('id', 'count', {
+          attributes: [['id', 'id2']],
+          group: ['id2'],
+          logging: true
+        });
+      });
+    });
+
     describe('options sent to aggregate', () => {
       let options, aggregateSpy;
 
@@ -2517,7 +2596,7 @@ describe(Support.getTestDialectTeaser('Model'), () => {
           if (semver.gte(current.options.databaseVersion, '5.6.0')) {
             expect(err.message).to.match(/Cannot add foreign key constraint/);
           } else {
-            expect(err.message).to.match(/Can\'t create table/);
+            expect(err.message).to.match(/Can't create table/);
           }
         } else if (dialect === 'sqlite') {
           // the parser should not end up here ... see above

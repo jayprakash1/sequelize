@@ -48,7 +48,7 @@ export interface SyncOptions extends Logging {
   match?: RegExp;
 
   /**
-   * The schema that the tables should be created in. This can be overriden for each table in sequelize.define
+   * The schema that the tables should be created in. This can be overridden for each table in sequelize.define
    */
   schema?: string;
 }
@@ -83,28 +83,24 @@ export interface PoolOptions {
    * A function that validates a connection. Called with client. The default function checks that client is an
    * object, and that its state is not disconnected
    */
-  validate?(client?: any): boolean;
+  validate?(client?: unknown): boolean;
+}
+
+export interface ConnectionOptions {
+  host?: string;
+  port?: string | number;
+  username?: string;
+  password?: string;
+  database?: string;
 }
 
 /**
  * Interface for replication Options in the sequelize constructor
  */
 export interface ReplicationOptions {
-  read?: {
-    host?: string;
-    port?: string | number;
-    username?: string;
-    password?: string;
-    database?: string;
-  };
+  read: ConnectionOptions[];
 
-  write?: {
-    host?: string;
-    port?: string | number;
-    username?: string;
-    password?: string;
-    database?: string;
-  };
+  write: ConnectionOptions;
 }
 
 /**
@@ -119,6 +115,7 @@ export interface OperatorsAliases {
  */
 export interface Config {
   readonly database: string;
+  readonly dialectModule?: object;
   readonly host?: string;
   readonly port?: string;
   readonly username: string;
@@ -131,7 +128,7 @@ export interface Config {
   };
   readonly protocol: 'tcp';
   readonly native: boolean;
-  readonly ssl: any;
+  readonly ssl: boolean;
   readonly replication: boolean;
   readonly dialectModulePath: null | string;
   readonly keepDefaultTimezone?: boolean;
@@ -143,6 +140,11 @@ export interface Config {
 
 export type Dialect =  'mysql' | 'postgres' | 'sqlite' | 'mariadb' | 'mssql' | 'mariadb';
 
+export interface RetryOptions {
+  match?: (RegExp | string | Function)[];
+  max?: number;
+}
+
 /**
  * Options for the constructor of Sequelize main class
  */
@@ -153,6 +155,15 @@ export interface Options extends Logging {
    * @default 'mysql'
    */
   dialect?: Dialect;
+
+  /**
+   * If specified, will use the provided module as the dialect.
+   *
+   * @example
+   * `dialectModule: require('@myorg/tedious'),`
+   */
+  dialectModule?: object;
+
 
   /**
    * If specified, load the dialect library from this path. For example, if you want to use pg.js instead of
@@ -212,7 +223,7 @@ export interface Options extends Logging {
   protocol?: string;
 
   /**
-   * Default options for model definitions. See sequelize.define for options
+   * Default options for model definitions. See Model.init.
    */
   define?: ModelOptions;
 
@@ -302,12 +313,23 @@ export interface Options extends Logging {
    *
    * @default all aliases
    */
-  operatorsAliases?: OperatorsAliases | false;
+  operatorsAliases?: OperatorsAliases;
+
+
+  /**
+   * The PostgreSQL `standard_conforming_strings` session parameter. Set to `false` to not set the option.
+   * WARNING: Setting this to false may expose vulnerabilities and is not recommended!
+   *
+   * @default true
+   */
+  standardConformingStrings?: boolean;
 
   /**
    * Sets global permanent hooks.
    */
-  hooks?: Partial<SequelizeHooks>
+  hooks?: Partial<SequelizeHooks>;
+
+  retry?: RetryOptions;
 }
 
 export interface QueryOptionsTransactionRequired {}
@@ -317,7 +339,7 @@ export interface QueryOptionsTransactionRequired {}
  * import sequelize:
  *
  * ```js
- * var Sequelize = require('sequelize');
+ * const Sequelize = require('sequelize');
  * ```
  *
  * In addition to sequelize, the connection library for the dialect you want to use
@@ -548,6 +570,24 @@ export class Sequelize extends Hooks {
   public static beforeFind(fn: (options: FindOptions) => void): void;
 
   /**
+   * A hook that is run before a connection is established
+   *
+   * @param name
+   * @param fn   A callback function that is called with options
+   */
+  public static beforeConnect(name: string, fn: (options: Config) => void): void;
+  public static beforeConnect(fn: (options: Config) => void): void;
+
+  /**
+   * A hook that is run after a connection is established
+   *
+   * @param name
+   * @param fn   A callback function that is called with options
+   */
+  public static afterConnect(name: string, fn: (connection: unknown, options: Config) => void): void;
+  public static afterConnect(fn: (connection: unknown, options: Config) => void): void;
+
+  /**
    * A hook that is run before a find (select) query, after any { include: {all: ...} } options are expanded
    *
    * @param name
@@ -649,6 +689,15 @@ export class Sequelize extends Hooks {
   public static afterSync(fn: (options: SyncOptions) => HookReturn): void;
 
   /**
+   * Use CLS with Sequelize.
+   * CLS namespace provided is stored as `Sequelize._cls`
+   * and bluebird Promise is patched to use the namespace, using `cls-bluebird` module.
+   *
+   * @param namespace
+   */
+  public static useCLS(namespace: object): typeof Sequelize;
+
+  /**
    * A reference to Sequelize constructor from sequelize. Useful for accessing DataTypes, Errors etc.
    */
   public Sequelize: typeof Sequelize;
@@ -663,25 +712,32 @@ export class Sequelize extends Hooks {
   public readonly connectionManager: ConnectionManager;
 
   /**
+   * Dictionary of all models linked with this instance.
+   */
+  public readonly models: {
+    [key: string]: typeof Model;
+  };
+
+  /**
    * Instantiate sequelize with name of database, username and password
    *
    * #### Example usage
    *
    * ```javascript
    * // without password and options
-   * var sequelize = new Sequelize('database', 'username')
+   * const sequelize = new Sequelize('database', 'username')
    *
    * // without options
-   * var sequelize = new Sequelize('database', 'username', 'password')
+   * const sequelize = new Sequelize('database', 'username', 'password')
    *
    * // without password / with blank password
-   * var sequelize = new Sequelize('database', 'username', null, {})
+   * const sequelize = new Sequelize('database', 'username', null, {})
    *
    * // with password and options
-   * var sequelize = new Sequelize('my_database', 'john', 'doe', {})
+   * const sequelize = new Sequelize('my_database', 'john', 'doe', {})
    *
    * // with uri (see below)
-   * var sequelize = new Sequelize('mysql://localhost:3306/database', {})
+   * const sequelize = new Sequelize('mysql://localhost:3306/database', {})
    * ```
    *
    * @param database The name of the database
@@ -949,7 +1005,8 @@ export class Sequelize extends Hooks {
    * represents a column. A short table definition might look like this:
    *
    * ```js
-   * sequelize.define('modelName', {
+   * class MyModel extends Model {}
+   * MyModel.init({
    *   columnA: {
    *     type: Sequelize.BOOLEAN,
    *     validate: {
@@ -965,7 +1022,7 @@ export class Sequelize extends Hooks {
    *   },
    *   columnB: Sequelize.STRING,
    *   columnC: 'MY VERY OWN COLUMN TYPE'
-   * })
+   * }, { sequelize })
    *
    * sequelize.models.modelName // The model will now be available in models under the name given to define
    * ```
@@ -1034,17 +1091,17 @@ export class Sequelize extends Hooks {
    * Execute a query on the DB, with the posibility to bypass all the sequelize goodness.
    *
    * By default, the function will return two arguments: an array of results, and a metadata object,
-   * containing number of affected rows etc. Use `.spread` to access the results.
+   * containing number of affected rows etc. Use `.then(([...]))` to access the results.
    *
    * If you are running a type of query where you don't need the metadata, for example a `SELECT` query, you
    * can pass in a query type to make sequelize format the results:
    *
    * ```js
-   * sequelize.query('SELECT...').spread(function (results, metadata) {
+   * sequelize.query('SELECT...').then(([results, metadata]) {
    *   // Raw query - use spread
    * });
    *
-   * sequelize.query('SELECT...', { type: sequelize.QueryTypes.SELECT }).then(function (results) {
+   * sequelize.query('SELECT...', { type: sequelize.QueryTypes.SELECT }).then(results => {
    *   // SELECT query - use then
    * })
    * ```
@@ -1052,14 +1109,14 @@ export class Sequelize extends Hooks {
    * @param sql
    * @param options Query options
    */
-  public query(sql: string | { query: string; values: any[] }, options: QueryOptionsWithType<QueryTypes.UPDATE>): Promise<[undefined, number]>;
-  public query(sql: string | { query: string; values: any[] }, options: QueryOptionsWithType<QueryTypes.BULKUPDATE>): Promise<number>;
-  public query(sql: string | { query: string; values: any[] }, options: QueryOptionsWithType<QueryTypes.INSERT>): Promise<[number, number]>;
-  public query(sql: string | { query: string; values: any[] }, options: QueryOptionsWithType<QueryTypes.UPSERT>): Promise<number>;
-  public query(sql: string | { query: string; values: any[] }, options: QueryOptionsWithType<QueryTypes.DELETE>): Promise<void>;
-  public query(sql: string | { query: string; values: any[] }, options: QueryOptionsWithType<QueryTypes.BULKDELETE>): Promise<number>;
-  public query(sql: string | { query: string; values: any[] }, options: QueryOptionsWithType<QueryTypes.SHOWTABLES>): Promise<string[]>;
-  public query(sql: string | { query: string; values: any[] }, options: QueryOptionsWithType<QueryTypes.DESCRIBE>): Promise<{
+  public query(sql: string | { query: string; values: unknown[] }, options: QueryOptionsWithType<QueryTypes.UPDATE>): Promise<[undefined, number]>;
+  public query(sql: string | { query: string; values: unknown[] }, options: QueryOptionsWithType<QueryTypes.BULKUPDATE>): Promise<number>;
+  public query(sql: string | { query: string; values: unknown[] }, options: QueryOptionsWithType<QueryTypes.INSERT>): Promise<[number, number]>;
+  public query(sql: string | { query: string; values: unknown[] }, options: QueryOptionsWithType<QueryTypes.UPSERT>): Promise<number>;
+  public query(sql: string | { query: string; values: unknown[] }, options: QueryOptionsWithType<QueryTypes.DELETE>): Promise<void>;
+  public query(sql: string | { query: string; values: unknown[] }, options: QueryOptionsWithType<QueryTypes.BULKDELETE>): Promise<number>;
+  public query(sql: string | { query: string; values: unknown[] }, options: QueryOptionsWithType<QueryTypes.SHOWTABLES>): Promise<string[]>;
+  public query(sql: string | { query: string; values: unknown[] }, options: QueryOptionsWithType<QueryTypes.DESCRIBE>): Promise<{
     [key: string]: {
       type: string;
       allowNull: boolean;
@@ -1070,11 +1127,16 @@ export class Sequelize extends Hooks {
     }
   }>;
   public query<M extends Model>(
-    sql: string | { query: string; values: any[] },
+    sql: string | { query: string; values: unknown[] },
     options: QueryOptionsWithModel
   ): Promise<M[]>;
-  public query<T extends object>(sql: string | { query: string; values: any[] }, options: QueryOptionsWithType<QueryTypes.SELECT>): Promise<T[]>;
-  public query(sql: string | { query: string; values: any[] }, options?: QueryOptions | QueryOptionsWithType<QueryTypes.RAW>): Promise<unknown[]>;
+  public query<T extends object>(sql: string | { query: string; values: unknown[] }, options: QueryOptionsWithType<QueryTypes.SELECT>): Promise<T[]>;
+  public query(sql: string | { query: string; values: unknown[] }, options?: QueryOptions | QueryOptionsWithType<QueryTypes.RAW>): Promise<unknown[]>;
+
+  /**
+   * Get the fn for random based on the dialect
+   */
+  public random(): Fn;
 
   /**
    * Execute a query which would set an environment or user variable. The variables are set per connection,
@@ -1175,8 +1237,8 @@ export class Sequelize extends Hooks {
    * in order for the query to happen under that transaction
    *
    * ```js
-   * sequelize.transaction().then(function (t) {
-   *   return User.findOne(..., { transaction: t}).then(function (user) {
+   * sequelize.transaction().then(t => {
+   *   return User.findOne(..., { transaction: t}).then(user => {
    *   return user.update(..., { transaction: t});
    *   })
    *   .then(t.commit.bind(t))
@@ -1188,13 +1250,13 @@ export class Sequelize extends Hooks {
    * supported:
    *
    * ```js
-   * sequelize.transaction(function (t) { // Note that we use a callback rather than a promise.then()
-   *   return User.findOne(..., { transaction: t}).then(function (user) {
-   *   return user.update(..., { transaction: t});
+   * sequelize.transaction(t => { // Note that we use a callback rather than a promise.then()
+   *   return User.findOne(..., { transaction: t}).then(user => {
+   *    return user.update(..., { transaction: t});
    *   });
-   * }).then(function () {
+   * }).then(() => {
    *   // Commited
-   * }).catch(function (err) {
+   * }).catch(err => {
    *   // Rolled back
    *   console.error(err);
    * });
@@ -1205,9 +1267,9 @@ export class Sequelize extends Hooks {
    * project, create a namespace and set it on the sequelize constructor:
    *
    * ```js
-   * var cls = require('continuation-local-storage'),
+   * const cls = require('continuation-local-storage'),
    *   ns = cls.createNamespace('....');
-   * var Sequelize = require('sequelize');
+   * const Sequelize = require('sequelize');
    * Sequelize.cls = ns;
    * ```
    * Note, that CLS is enabled for all sequelize instances, and all instances will share the same namespace
@@ -1226,7 +1288,7 @@ export class Sequelize extends Hooks {
    * Normally this is done on process exit, so you only need to call this method if you are creating multiple
    * instances, and want to garbage collect some of them.
    */
-  public close(): void;
+  public close(): Promise<void>;
 
   /**
    * Returns the database version
@@ -1251,7 +1313,7 @@ export class Sequelize extends Hooks {
  * @param fn The function you want to call
  * @param args All further arguments will be passed as arguments to the function
  */
-export function fn(fn: string, ...args: any[]): Fn;
+export function fn(fn: string, ...args: unknown[]): Fn;
 
 /**
  * Creates a object representing a column in the DB. This is often useful in conjunction with
@@ -1267,14 +1329,14 @@ export function col(col: string): Col;
  * @param val The value to cast
  * @param type The type to cast it to
  */
-export function cast(val: any, type: string): Cast;
+export function cast(val: unknown, type: string): Cast;
 
 /**
  * Creates a object representing a literal, i.e. something that will not be escaped.
  *
  * @param val
  */
-export function literal(val: any): Literal;
+export function literal(val: string): Literal;
 
 /**
  * An AND query
@@ -1301,7 +1363,7 @@ export function or(...args: (WhereOperators | WhereAttributeHash | Where)[]): Or
 export function json(conditionsOrPath: string | object, value?: string | number | boolean): Json;
 
 export type AttributeType = Fn | Col | Literal | ModelAttributeColumnOptions | string;
-export type LogicType = Fn | Col | Literal | OrOperator | AndOperator | string;
+export type LogicType = Fn | Col | Literal | OrOperator | AndOperator | WhereOperators | string;
 
 /**
  * A way of specifying attr = condition.

@@ -1,8 +1,8 @@
-import { AndOperator, fn, Model, Op, OrOperator, Sequelize, WhereOperators, WhereOptions } from 'sequelize';
+import { AndOperator, fn, Model, Op, OrOperator, Sequelize, WhereOperators, WhereOptions, where as whereFn } from 'sequelize';
 import Transaction from '../lib/transaction';
 
 class MyModel extends Model {
-    public hi: number;
+    public hi!: number;
 }
 
 let where: WhereOptions;
@@ -41,6 +41,10 @@ let operators: WhereOperators = {
     [Op.contains]: [1, 2], // @> [1, 2] (PG array contains operator)
     [Op.contained]: [1, 2], // <@ [1, 2] (PG array contained by operator)
     [Op.any]: [2, 3], // ANY ARRAY[2, 3]::INTEGER (PG only)
+    [Op.regexp]: '^[h|a|t]', // REGEXP/~ '^[h|a|t]' (MySQL/PG only)
+    [Op.notRegexp]: '^[h|a|t]', // NOT REGEXP/!~ '^[h|a|t]' (MySQL/PG only)
+    [Op.iRegexp]: '^[h|a|t]',    // ~* '^[h|a|t]' (PG only)
+    [Op.notIRegexp]: '^[h|a|t]' // !~* '^[h|a|t]' (PG only)
 };
 
 operators = {
@@ -166,7 +170,6 @@ MyModel.findAll({ lock: { level: Transaction.LOCK.KEY_SHARE, of: MyModel} }).the
 
 MyModel.findAll({
     where: {
-        // tslint:disable-next-line:no-object-literal-type-assertion
         id: {
             // casting here to check a missing operator is not accepted as field name
             [Op.and]: { a: 5 }, // AND (a = 5)
@@ -188,6 +191,12 @@ MyModel.findAll({
             [Op.contains]: [1, 2], // @> [1, 2] (PG array contains operator)
             [Op.contained]: [1, 2], // <@ [1, 2] (PG array contained by operator)
             [Op.any]: [2, 3], // ANY ARRAY[2, 3]::INTEGER (PG only)
+            [Op.adjacent]: [1, 2],
+            [Op.strictLeft]: [1, 2],
+            [Op.strictRight]: [1, 2],
+            [Op.noExtendLeft]: [1, 2],
+            [Op.noExtendRight]: [1, 2],
+            [Op.values]: [1, 2],
         } as WhereOperators,
         status: {
             [Op.not]: false, // status NOT FALSE
@@ -252,3 +261,38 @@ where = {
 where = {
     [Op.gt]: fn('NOW'),
 };
+
+where = whereFn('test', {
+  [Op.gt]: new Date(),
+});
+
+// Where as having option
+MyModel.findAll({
+  having: where
+});
+
+where = {
+    [Op.lt]: Sequelize.literal('SOME_STRING')
+}
+
+Sequelize.where(
+    Sequelize.cast(Sequelize.col('SOME_COL'), 'INTEGER'), {
+        [Op.lt]: Sequelize.literal('LIT'),
+        [Op.any]: Sequelize.literal('LIT'),
+        [Op.gte]: Sequelize.literal('LIT'),
+        [Op.lt]: Sequelize.literal('LIT'),
+        [Op.lte]: Sequelize.literal('LIT'),
+        [Op.ne]: Sequelize.literal('LIT'),
+        [Op.not]: Sequelize.literal('LIT'),
+        [Op.in]: Sequelize.literal('LIT'),
+        [Op.notIn]: Sequelize.literal('LIT'),
+        [Op.like]: Sequelize.literal('LIT'),
+        [Op.notLike]: Sequelize.literal('LIT'),
+        [Op.iLike]: Sequelize.literal('LIT'),
+        [Op.overlap]: Sequelize.literal('LIT'),
+        [Op.contains]: Sequelize.literal('LIT'),
+        [Op.contained]: Sequelize.literal('LIT'),
+        [Op.gt]: Sequelize.literal('LIT'),
+        [Op.notILike]: Sequelize.literal('LIT')
+    }
+)

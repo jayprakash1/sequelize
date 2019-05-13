@@ -81,7 +81,7 @@ if (current.dialect.supports.transactions) {
         });
       });
 
-      it('supports running hooks when a transaction is commited', function() {
+      it('supports running hooks when a transaction is committed', function() {
         const hook = sinon.spy();
         let transaction;
         return expect(this.sequelize.transaction(t => {
@@ -106,7 +106,7 @@ if (current.dialect.supports.transactions) {
         });
       });
 
-      //Promise rejection test is specifc to postgres
+      //Promise rejection test is specific to postgres
       if (dialect === 'postgres') {
         it('do not rollback if already committed', function() {
           const SumSumSum = this.sequelize.define('transaction', {
@@ -124,16 +124,7 @@ if (current.dialect.supports.transactions) {
             };
           // Attention: this test is a bit racy. If you find a nicer way to test this: go ahead
           return SumSumSum.sync({ force: true }).then(() => {
-            return expect(Promise.join(transTest(80), transTest(80), transTest(80))).to.eventually.be.rejectedWith('could not serialize access due to read/write dependencies among transactions');
-          }).delay(100).then(() => {
-            if (this.sequelize.test.$runningQueries !== 0) {
-              return Promise.delay(200);
-            }
-            return void 0;
-          }).then(() => {
-            if (this.sequelize.test.$runningQueries !== 0) {
-              return Promise.delay(500);
-            }
+            return expect(Promise.all([transTest(80), transTest(80), transTest(80)])).to.eventually.be.rejectedWith('could not serialize access due to read/write dependencies among transactions');
           });
         });
       }
@@ -154,7 +145,7 @@ if (current.dialect.supports.transactions) {
         });
     });
 
-    it('does not allow queries immediatly after commit call', function() {
+    it('does not allow queries immediately after commit call', function() {
       return expect(
         this.sequelize.transaction().then(t => {
           return this.sequelize.query('SELECT 1+1', { transaction: t, raw: true }).then(() => {
@@ -194,7 +185,7 @@ if (current.dialect.supports.transactions) {
         .to.eventually.be.rejectedWith('Transaction cannot be rolled back because it never started');
     });
 
-    it('does not allow queries immediatly after rollback call', function() {
+    it('does not allow queries immediately after rollback call', function() {
       return expect(
         this.sequelize.transaction().then(t => {
           return Promise.join(
@@ -508,7 +499,7 @@ if (current.dialect.supports.transactions) {
                     }).then(() => {
                       t2Spy();
                       return t2.commit().then(() => {
-                        expect(t2Spy).to.have.been.calledAfter(t1Spy); // Find should not succeed before t1 has comitted
+                        expect(t2Spy).to.have.been.calledAfter(t1Spy); // Find should not succeed before t1 has committed
                       });
                     }),
 
