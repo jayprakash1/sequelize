@@ -1,6 +1,6 @@
 # Datatypes
 
-Below are some of the datatypes supported by sequelize. For a full and updated list, see [DataTypes](/variable/index.html#static-variable-DataTypes).
+Below are some of the datatypes supported by sequelize. For a full and updated list, see [DataTypes](/master/variable/index.html#static-variable-DataTypes).
 
 ```js
 Sequelize.STRING                      // VARCHAR(255)
@@ -165,7 +165,7 @@ Timeline.create({ range: [-Infinity, new Date(Date.UTC(2016, 0, 1))] });
 
 ## Extending datatypes
 
-Most likely the type you are trying to implement is already included in [DataTypes](/manual/data-types.html). If a new datatype is not included, this manual will show how to write it yourself.
+Most likely the type you are trying to implement is already included in [DataTypes](data-types.html). If a new datatype is not included, this manual will show how to write it yourself.
 
 Sequelize doesn't create new datatypes in the database. This tutorial explains how to make Sequelize recognize new datatypes and assumes that those new datatypes are already created in the database.
 
@@ -179,18 +179,18 @@ const sequelizeConfig = require('../config/sequelize')
 const sequelizeAdditions = require('./sequelize-additions')
 
 // Function that adds new datatypes
-sequelizeAdditions(Sequelize.DataTypes)
+sequelizeAdditions(Sequelize)
 
 // In this exmaple a Sequelize instance is created and exported
 const sequelize = new Sequelize(sequelizeConfig)
 
-modules.exports = sequelize
+module.exports = sequelize
 ```
 
 ```js
 // myproject/lib/sequelize-additions.js
 
-modules.exports = function sequelizeAdditions(Sequelize) {
+module.exports = function sequelizeAdditions(Sequelize) {
 
   DataTypes = Sequelize.DataTypes
 
@@ -229,13 +229,14 @@ modules.exports = function sequelizeAdditions(Sequelize) {
     }
   }
 
+  DataTypes.NEWTYPE = NEWTYPE;
+
   // Mandatory, set key
   DataTypes.NEWTYPE.prototype.key = DataTypes.NEWTYPE.key = 'NEWTYPE'
 
-
   // Optional, disable escaping after stringifier. Not recommended.
   // Warning: disables Sequelize protection against SQL injections
-  //DataTypes.NEWTYPE.escape = false
+  // DataTypes.NEWTYPE.escape = false
 
   // For convenience
   // `classToInvokable` allows you to use the datatype without `new`
@@ -253,7 +254,7 @@ Let's say the name of the new datatype is `pg_new_type` in the postgres database
 ```js
 // myproject/lib/sequelize-additions.js
 
-modules.exports = function sequelizeAdditions(Sequelize) {
+module.exports = function sequelizeAdditions(Sequelize) {
 
   DataTypes = Sequelize.DataTypes
 
@@ -282,7 +283,7 @@ modules.exports = function sequelizeAdditions(Sequelize) {
 
   // Mandatory, create, override or reassign a postgres-specific parser
   //PgTypes.NEWTYPE.parse = value => value;
-  PgTypes.NEWTYPE.parse = BaseTypes.NEWTYPE.parse;
+  PgTypes.NEWTYPE.parse = DataTypes.NEWTYPE.parse;
 
   // Optional, add or override methods of the postgres-specific datatype
   // like toSql, escape, validate, _stringify, _sanitize...
@@ -299,7 +300,7 @@ In this example the name of the postgres range type is `newtype_range` and the n
 ```js
 // myproject/lib/sequelize-additions.js
 
-modules.exports = function sequelizeAdditions(Sequelize) {
+module.exports = function sequelizeAdditions(Sequelize) {
 
   DataTypes = Sequelize.DataTypes
 

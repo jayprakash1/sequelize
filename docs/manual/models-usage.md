@@ -2,7 +2,7 @@
 
 ## Data retrieval / Finders
 
-Finder methods are intended to query data from the database. They do *not* return plain objects but instead return model instances. Because finder methods return model instances you can call any model instance member on the result as described in the documentation for [*instances*](/manual/instances.html).
+Finder methods are intended to query data from the database. They do *not* return plain objects but instead return model instances. Because finder methods return model instances you can call any model instance member on the result as described in the documentation for [*instances*](instances.html).
 
 In this document we'll explore what finder methods can do:
 
@@ -35,6 +35,8 @@ Project.findOne({
 The method `findOrCreate` can be used to check if a certain element already exists in the database. If that is the case the method will result in a respective instance. If the element does not yet exist, it will be created.
 
 Let's assume we have an empty database with a `User` model which has a `username` and a `job`.
+
+`where` option will be appended to `defaults` for create case.
 
 ```js
 User
@@ -131,7 +133,7 @@ Suppose you want to find all users who have a profile attached:
 ```js
 User.findAndCountAll({
   include: [
-     { model: Profile, required: true}
+     { model: Profile, required: true }
   ],
   limit: 3
 });
@@ -756,4 +758,50 @@ Include all also supports nested loading:
 
 ```js
 User.findAll({ include: [{ all: true, nested: true }]});
+```
+
+### Use right join for association
+
+By default, associations are loaded using a left join, that is to say it only includes records from the parent table. You can change this behavior to a right join by passing the `right` property, if the dialect you are using supports it. Currenly, `sqlite` *does not* support [right joins](https://www.sqlite.org/omitted.html).
+
+*Note:* `right` is only respected if `required` is false.
+
+```js
+User.findAll({
+    include: [{
+        model: Tool // will create a left join
+    }]
+});
+
+User.findAll({
+    include: [{
+        model: Tool,
+        right: true // will create a right join
+    }]
+});
+
+User.findAll({
+    include: [{
+        model: Tool,
+        required: true,
+        right: true // has no effect, will create an inner join
+    }]
+});
+
+User.findAll({
+    include: [{
+        model: Tool,
+        where: { name: { [Op.like]: '%ooth%' } },
+        right: true // has no effect, will create an inner join
+    }]
+});
+
+User.findAll({
+    include: [{
+        model: Tool,
+        where: { name: { [Op.like]: '%ooth%' } },
+        required: false
+        right: true // because we set `required` to false, this will create a right join
+    }]
+});
 ```

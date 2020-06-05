@@ -2,6 +2,8 @@
 
 Hooks (also known as lifecycle events), are functions which are called before and after calls in sequelize are executed. For example, if you want to always set a value on a model before saving it, you can add a `beforeUpdate` hook.
 
+**Note:** _You can't use hooks with instances. Hooks are used with models._
+
 For a full list of hooks, see [Hooks file](https://github.com/sequelize/sequelize/blob/master/lib/hooks.js#L7).
 
 ## Order of Operations
@@ -186,11 +188,13 @@ new Sequelize(..., {
 
 ### Connection Hooks
 
-Sequelize provides two hooks that are executed immediately before and after a database connection is obtained:
+Sequelize provides four hooks that are executed immediately before and after a database connection is obtained or released:
 
 ```text
 beforeConnect(config)
 afterConnect(connection, config)
+beforeDisconnect(connection)
+afterDisconnect(connection)
 ```
 
 These hooks can be useful if you need to asynchronously obtain database credentials, or need to directly access the low-level database connection after it has been created.

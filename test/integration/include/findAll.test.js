@@ -1911,6 +1911,50 @@ describe(Support.getTestDialectTeaser('Include'), () => {
       });
     });
 
+    it('should ignore include with attributes: [] and through: { attributes: [] } (used for aggregates)', function() {
+      const User = this.sequelize.define('User', {
+        name: DataTypes.STRING
+      });
+      const Project = this.sequelize.define('Project', {
+        title: DataTypes.STRING
+      });
+
+      User.belongsToMany(Project, { as: 'projects', through: 'UserProject' });
+      Project.belongsToMany(User, { as: 'users', through: 'UserProject' });
+
+      return this.sequelize.sync({ force: true }).then(() => {
+        return User.create({
+          name: Math.random().toString(),
+          projects: [
+            { title: Math.random().toString() },
+            { title: Math.random().toString() },
+            { title: Math.random().toString() }
+          ]
+        }, {
+          include: [User.associations.projects]
+        });
+      }).then(() => {
+        return User.findAll({
+          attributes: [
+            [this.sequelize.fn('COUNT', this.sequelize.col('projects.id')), 'projectsCount']
+          ],
+          include: {
+            association: User.associations.projects,
+            attributes: [],
+            through: { attributes: [] }
+          },
+          group: ['User.id']
+        });
+      }).then(users => {
+        expect(users.length).to.equal(1);
+
+        const user = users[0];
+
+        expect(user.projects).not.to.be.ok;
+        expect(parseInt(user.get('projectsCount'), 10)).to.equal(3);
+      });
+    });
+
     it('should not add primary key when including and aggregating with raw: true', function() {
       const Post = this.sequelize.define('Post', {
           title: DataTypes.STRING
@@ -2088,6 +2132,30 @@ describe(Support.getTestDialectTeaser('Include'), () => {
               }]
             }]
           }]
+        });
+      });
+    });
+
+    it('should be able to generate a correct request for entity with 1:n and m:1 associations and limit', function() {
+      return this.fixtureA().then(() => {
+        return this.models.Product.findAll({
+          attributes: ['title'],
+          include: [
+            { model: this.models.User },
+            { model: this.models.Price }
+          ],
+          limit: 10
+        }).then( products => {
+          expect(products).to.be.an('array');
+          expect(products).to.be.lengthOf(10);
+          for (const product of products) {
+            expect(product.title).to.be.a('string');
+            // checking that internally added fields used to handle 'BelongsTo' associations are not leaked to result
+            expect(product.UserId).to.be.equal(undefined);
+            // checking that included models are on their places
+            expect(product.User).to.satisfy( User => User === null || User instanceof this.models.User );
+            expect(product.Prices).to.be.an('array');
+          }
         });
       });
     });
