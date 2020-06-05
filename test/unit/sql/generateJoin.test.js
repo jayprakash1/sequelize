@@ -7,7 +7,7 @@ const Support = require('../support'),
   _ = require('lodash'),
   expectsql = Support.expectsql,
   current = Support.sequelize,
-  sql = current.dialect.QueryGenerator,
+  sql = current.dialect.queryGenerator,
   Op = Sequelize.Op;
 
 // Notice: [] will be replaced by dialect specific tick/quote character when there is not dialect specific expectation but only a default expectation
@@ -169,6 +169,22 @@ describe(Support.getTestDialectTeaser('SQL'), () => {
       {
         default: "LEFT OUTER JOIN [company] AS [Company] ON [User].[companyId] = [Company].[id] AND [Company].[name] = 'ABC'",
         mssql: "LEFT OUTER JOIN [company] AS [Company] ON [User].[companyId] = [Company].[id] AND [Company].[name] = N'ABC'"
+      }
+    );
+
+    testsql(
+      'include[0]',
+      {
+        model: User,
+        subQuery: true,
+        include: [
+          {
+            association: User.Company, right: true
+          }
+        ]
+      },
+      {
+        default: `${current.dialect.supports['RIGHT JOIN'] ? 'RIGHT' : 'LEFT'} OUTER JOIN [company] AS [Company] ON [User].[companyId] = [Company].[id]`
       }
     );
 
